@@ -145,20 +145,29 @@ export function filterMessagingToolMediaDuplicates(params: {
   });
 }
 
-function normalizeProviderForSuppression(provider?: string): string | undefined {
-  const raw = provider?.trim();
-  if (!raw) {
+const PROVIDER_ALIAS_MAP: Record<string, string> = {
+  lark: "feishu",
+};
+
+function normalizeProviderForComparison(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
     return undefined;
   }
-  return normalizeChannelId(raw) ?? raw.toLowerCase();
+  const lowered = trimmed.toLowerCase();
+  const normalizedChannel = normalizeChannelId(trimmed);
+  if (normalizedChannel) {
+    return normalizedChannel;
+  }
+  return PROVIDER_ALIAS_MAP[lowered] ?? lowered;
 }
 
-function resolveTargetProviderForSuppression(params: {
+function resolveTargetProviderForComparison(params: {
   currentProvider: string;
   targetProvider?: string;
 }): string {
-  const targetProvider = normalizeProviderForSuppression(params.targetProvider);
-  // "message" is a placeholder for providerless sends; treat it as wildcard.
+  const targetProvider = normalizeProviderForComparison(params.targetProvider);
+  // Providerless/"message" sends should match the current run provider.
   if (!targetProvider || targetProvider === "message") {
     return params.currentProvider;
   }
@@ -171,7 +180,7 @@ export function shouldSuppressMessagingToolReplies(params: {
   originatingTo?: string;
   accountId?: string;
 }): boolean {
-  const provider = normalizeProviderForSuppression(params.messageProvider);
+  const provider = normalizeProviderForComparison(params.messageProvider);
   if (!provider) {
     return false;
   }
@@ -185,14 +194,14 @@ export function shouldSuppressMessagingToolReplies(params: {
     return false;
   }
   return sentTargets.some((target) => {
-    const targetProvider = resolveTargetProviderForSuppression({
+    const targetProvider = resolveTargetProviderForComparison({
       currentProvider: provider,
       targetProvider: target?.provider,
     });
     if (targetProvider !== provider) {
       return false;
     }
-    const targetKey = normalizeTargetForProvider(provider, target.to);
+    const targetKey = normalizeTargetForProvider(targetProvider, target.to);
     if (!targetKey) {
       return false;
     }
