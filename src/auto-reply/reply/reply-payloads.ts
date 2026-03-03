@@ -186,10 +186,15 @@ function targetsMatchForSuppression(params: {
   }
   const origin = parseTelegramTarget(params.originTarget);
   const target = parseTelegramTarget(params.targetKey);
-  const explicitTargetThreadId =
-    typeof params.targetThreadId === "string" && /^\d+$/.test(params.targetThreadId.trim())
-      ? Number.parseInt(params.targetThreadId, 10)
-      : undefined;
+  const rawTargetThreadId =
+    typeof params.targetThreadId === "string" ? params.targetThreadId.trim() : undefined;
+  if (rawTargetThreadId && !/^\d+$/.test(rawTargetThreadId)) {
+    // Explicit malformed topic/thread ids should not fall back to chat-level auto-threading.
+    return false;
+  }
+  const explicitTargetThreadId = rawTargetThreadId
+    ? Number.parseInt(rawTargetThreadId, 10)
+    : undefined;
   const targetThreadId = explicitTargetThreadId ?? target.messageThreadId;
   if (origin.chatId.trim().toLowerCase() !== target.chatId.trim().toLowerCase()) {
     return false;

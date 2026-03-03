@@ -146,4 +146,15 @@ describe("shouldSuppressMessagingToolReplies", () => {
     });
     expect(suppressed).toBe(false);
   });
+
+  it("does not suppress telegram topic-origin replies when explicit threadId is malformed", () => {
+    const suppressed = shouldSuppressMessagingToolReplies({
+      messageProvider: "telegram",
+      originatingTo: "telegram:group:-100123:topic:77",
+      messagingToolSentTargets: [
+        { tool: "message", provider: "telegram", to: "-100123", threadId: "not-a-topic-id" },
+      ],
+    });
+    expect(suppressed).toBe(false);
+  });
 });
