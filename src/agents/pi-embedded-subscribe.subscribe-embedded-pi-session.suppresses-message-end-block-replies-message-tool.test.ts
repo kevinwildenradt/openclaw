@@ -132,6 +132,28 @@ describe("subscribeEmbeddedPiSession", () => {
 
     expect(onBlockReply).toHaveBeenCalledTimes(1);
   });
+  it("suppresses message_end when inferred-target send exists alongside explicit off-target send", async () => {
+    const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "message_end" });
+
+    const messageText = "Done - sent from inferred channel context.";
+    await emitMessageToolLifecycle({
+      emit,
+      toolCallId: "tool-message-inferred-target-mixed-message-end",
+      omitTo: true,
+      message: messageText,
+      result: "ok",
+    });
+    await emitMessageToolLifecycle({
+      emit,
+      toolCallId: "tool-message-explicit-other-chat-message-end",
+      to: "any;+;c9e1c78203f74195b1db32e57529fb6a",
+      message: "Explicit send in another chat.",
+      result: "ok",
+    });
+    emitAssistantMessageEnd(emit, messageText);
+
+    expect(onBlockReply).not.toHaveBeenCalled();
+  });
   it("suppresses text_end block replies when message tool infers target without to/target args", async () => {
     const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "text_end" });
 
@@ -161,6 +183,28 @@ describe("subscribeEmbeddedPiSession", () => {
     emitAssistantTextEndBlock(emit, messageText);
 
     expect(onBlockReply).toHaveBeenCalledTimes(1);
+  });
+  it("suppresses text_end when inferred-target send exists alongside explicit off-target send", async () => {
+    const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "text_end" });
+
+    const messageText = "Done - sent from inferred channel context.";
+    await emitMessageToolLifecycle({
+      emit,
+      toolCallId: "tool-message-inferred-target-mixed-text-end",
+      omitTo: true,
+      message: messageText,
+      result: "ok",
+    });
+    await emitMessageToolLifecycle({
+      emit,
+      toolCallId: "tool-message-explicit-other-chat-text-end",
+      to: "any;+;c9e1c78203f74195b1db32e57529fb6a",
+      message: "Explicit send in another chat.",
+      result: "ok",
+    });
+    emitAssistantTextEndBlock(emit, messageText);
+
+    expect(onBlockReply).not.toHaveBeenCalled();
   });
   it("clears block reply state on message_start", () => {
     const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "text_end" });

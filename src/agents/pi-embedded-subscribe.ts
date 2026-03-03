@@ -74,6 +74,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     messagingToolSentTexts: [],
     messagingToolSentTextsNormalized: [],
     messagingToolSentTargets: [],
+    messagingToolSentWithoutTargetCount: 0,
     messagingToolSentMediaUrls: [],
     pendingMessagingTexts: new Map(),
     pendingMessagingTargets: new Map(),
@@ -213,6 +214,11 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     if (messagingToolSentTargets.length === 0) {
       // Backward-compatible fallback: some successful sends infer target from tool context
       // and don't include explicit to/target, so no send target is recorded.
+      return true;
+    }
+    if (state.messagingToolSentWithoutTargetCount > 0) {
+      // Mixed runs can include both explicit off-target sends and inferred sends with no target
+      // metadata. Preserve legacy suppression for inferred sends in that case.
       return true;
     }
     return shouldSuppressMessagingToolReplies({
@@ -607,6 +613,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     messagingToolSentTexts.length = 0;
     messagingToolSentTextsNormalized.length = 0;
     messagingToolSentTargets.length = 0;
+    state.messagingToolSentWithoutTargetCount = 0;
     messagingToolSentMediaUrls.length = 0;
     pendingMessagingTexts.clear();
     pendingMessagingTargets.clear();

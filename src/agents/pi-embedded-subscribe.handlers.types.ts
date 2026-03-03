@@ -71,6 +71,7 @@ export type EmbeddedPiSubscribeState = {
   messagingToolSentTexts: string[];
   messagingToolSentTextsNormalized: string[];
   messagingToolSentTargets: MessagingToolSend[];
+  messagingToolSentWithoutTargetCount: number;
   messagingToolSentMediaUrls: string[];
   pendingMessagingTexts: Map<string, string>;
   pendingMessagingTargets: Map<string, MessagingToolSend>;
@@ -154,6 +155,7 @@ export type ToolHandlerState = Pick<
   | "messagingToolSentTextsNormalized"
   | "messagingToolSentMediaUrls"
   | "messagingToolSentTargets"
+  | "messagingToolSentWithoutTargetCount"
   | "successfulCronAdds"
 >;
 

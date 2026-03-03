@@ -42,6 +42,7 @@ function createTestContext(): {
       pendingMessagingMediaUrls: new Map<string, string[]>(),
       messagingToolSentTexts: [],
       messagingToolSentTextsNormalized: [],
+      messagingToolSentWithoutTargetCount: 0,
       messagingToolSentMediaUrls: [],
       messagingToolSentTargets: [],
       successfulCronAdds: 0,
@@ -176,6 +177,46 @@ describe("handleToolExecutionEnd cron.add commitment tracking", () => {
 });
 
 describe("messaging tool media URL tracking", () => {
+  it("counts successful messaging sends that have text but no explicit target", async () => {
+    const { ctx } = createTestContext();
+    await handleToolExecutionStart(ctx, {
+      type: "tool_execution_start",
+      toolName: "message",
+      toolCallId: "tool-targetless-success",
+      args: { action: "send", content: "sent via inferred route" },
+    });
+
+    await handleToolExecutionEnd(ctx, {
+      type: "tool_execution_end",
+      toolName: "message",
+      toolCallId: "tool-targetless-success",
+      isError: false,
+      result: { details: { status: "ok" } },
+    });
+
+    expect(ctx.state.messagingToolSentWithoutTargetCount).toBe(1);
+  });
+
+  it("does not count targetless sends when the tool errors", async () => {
+    const { ctx } = createTestContext();
+    await handleToolExecutionStart(ctx, {
+      type: "tool_execution_start",
+      toolName: "message",
+      toolCallId: "tool-targetless-error",
+      args: { action: "send", content: "not delivered" },
+    });
+
+    await handleToolExecutionEnd(ctx, {
+      type: "tool_execution_end",
+      toolName: "message",
+      toolCallId: "tool-targetless-error",
+      isError: true,
+      result: { details: { status: "error" } },
+    });
+
+    expect(ctx.state.messagingToolSentWithoutTargetCount).toBe(0);
+  });
+
   it("tracks media arg from messaging tool as pending", async () => {
     const { ctx } = createTestContext();
 

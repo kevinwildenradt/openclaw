@@ -394,12 +394,14 @@ export function handleMessageEnd(
       const shouldSuppressBlockReply = hasRoutingScope
         ? ctx.state.messagingToolSentTargets.length === 0
           ? true
-          : shouldSuppressMessagingToolReplies({
-              messageProvider: ctx.params.messageProvider,
-              messagingToolSentTargets: ctx.state.messagingToolSentTargets,
-              originatingTo: ctx.params.originatingTo,
-              accountId: ctx.params.accountId,
-            })
+          : ctx.state.messagingToolSentWithoutTargetCount > 0
+            ? true
+            : shouldSuppressMessagingToolReplies({
+                messageProvider: ctx.params.messageProvider,
+                messagingToolSentTargets: ctx.state.messagingToolSentTargets,
+                originatingTo: ctx.params.originatingTo,
+                accountId: ctx.params.accountId,
+              })
         : true;
       if (
         shouldSuppressBlockReply &&
