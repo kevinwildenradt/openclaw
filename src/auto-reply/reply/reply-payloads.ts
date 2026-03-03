@@ -4,6 +4,7 @@ import { normalizeChannelId } from "../../channels/plugins/index.js";
 import type { ReplyToMode } from "../../config/types.js";
 import { normalizeTargetForProvider } from "../../infra/outbound/target-normalization.js";
 import { normalizeOptionalAccountId } from "../../routing/account-id.js";
+import { parseTelegramThreadId } from "../../telegram/outbound-params.js";
 import { parseTelegramTarget } from "../../telegram/targets.js";
 import type { OriginatingChannelType } from "../templating.js";
 import type { ReplyPayload } from "../types.js";
@@ -188,13 +189,11 @@ function targetsMatchForSuppression(params: {
   const target = parseTelegramTarget(params.targetKey);
   const rawTargetThreadId =
     typeof params.targetThreadId === "string" ? params.targetThreadId.trim() : undefined;
-  if (rawTargetThreadId && !/^\d+$/.test(rawTargetThreadId)) {
+  const explicitTargetThreadId = parseTelegramThreadId(rawTargetThreadId);
+  if (rawTargetThreadId && explicitTargetThreadId == null) {
     // Explicit malformed topic/thread ids should not fall back to chat-level auto-threading.
     return false;
   }
-  const explicitTargetThreadId = rawTargetThreadId
-    ? Number.parseInt(rawTargetThreadId, 10)
-    : undefined;
   const targetThreadId = explicitTargetThreadId ?? target.messageThreadId;
   if (origin.chatId.trim().toLowerCase() !== target.chatId.trim().toLowerCase()) {
     return false;
