@@ -36,10 +36,10 @@ function createOpenAiFileModelsConfig(): NonNullable<OpenClawConfig["models"]> {
   };
 }
 
-function loadAuthStoreWithProfiles(profiles: AuthProfileStore["profiles"]): AuthProfileStore {
+function loadAuthStoreWithProfiles(profiles: Record<string, unknown>): AuthProfileStore {
   return {
     version: 1,
-    profiles,
+    profiles: profiles as AuthProfileStore["profiles"],
   };
 }
 
