@@ -7,16 +7,20 @@ import {
 } from "./pi-embedded-subscribe.e2e-harness.js";
 import { subscribeEmbeddedPiSession } from "./pi-embedded-subscribe.js";
 
-function createBlockReplyHarness(blockReplyBreak: "message_end" | "text_end") {
+function createBlockReplyHarness(params: {
+  blockReplyBreak: "message_end" | "text_end";
+  messageProvider?: string;
+  originatingTo?: string;
+}) {
   const { session, emit } = createStubSessionHarness();
   const onBlockReply = vi.fn();
   subscribeEmbeddedPiSession({
     session,
     runId: "run",
-    messageProvider: "bluebubbles",
-    originatingTo: "+14155592088",
+    messageProvider: params.messageProvider ?? "bluebubbles",
+    originatingTo: params.originatingTo ?? "+14155592088",
     onBlockReply,
-    blockReplyBreak,
+    blockReplyBreak: params.blockReplyBreak,
   });
   return { emit, onBlockReply };
 }
@@ -69,7 +73,7 @@ function emitAssistantTextEndBlock(emit: (evt: unknown) => void, text: string) {
 
 describe("subscribeEmbeddedPiSession", () => {
   it("suppresses message_end block replies when the message tool already sent", async () => {
-    const { emit, onBlockReply } = createBlockReplyHarness("message_end");
+    const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "message_end" });
 
     const messageText = "This is the answer.";
     await emitMessageToolLifecycle({
@@ -84,7 +88,7 @@ describe("subscribeEmbeddedPiSession", () => {
     expect(onBlockReply).not.toHaveBeenCalled();
   });
   it("does not suppress message_end replies when message tool reports error", async () => {
-    const { emit, onBlockReply } = createBlockReplyHarness("message_end");
+    const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "message_end" });
 
     const messageText = "Please retry the send.";
     await emitMessageToolLifecycle({
@@ -99,7 +103,7 @@ describe("subscribeEmbeddedPiSession", () => {
     expect(onBlockReply).toHaveBeenCalledTimes(1);
   });
   it("suppresses message_end block replies when message tool infers target without to/target args", async () => {
-    const { emit, onBlockReply } = createBlockReplyHarness("message_end");
+    const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "message_end" });
 
     const messageText = "Done - sent from inferred channel context.";
     await emitMessageToolLifecycle({
@@ -114,7 +118,7 @@ describe("subscribeEmbeddedPiSession", () => {
     expect(onBlockReply).not.toHaveBeenCalled();
   });
   it("does not suppress message_end replies when message tool sent to a different target", async () => {
-    const { emit, onBlockReply } = createBlockReplyHarness("message_end");
+    const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "message_end" });
 
     const messageText = "Done - I replied in Juan chat.";
     await emitMessageToolLifecycle({
@@ -129,7 +133,7 @@ describe("subscribeEmbeddedPiSession", () => {
     expect(onBlockReply).toHaveBeenCalledTimes(1);
   });
   it("suppresses text_end block replies when message tool infers target without to/target args", async () => {
-    const { emit, onBlockReply } = createBlockReplyHarness("text_end");
+    const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "text_end" });
 
     const messageText = "Done - sent from inferred channel context.";
     await emitMessageToolLifecycle({
@@ -144,7 +148,7 @@ describe("subscribeEmbeddedPiSession", () => {
     expect(onBlockReply).not.toHaveBeenCalled();
   });
   it("does not suppress text_end block replies when message tool sent to a different target", async () => {
-    const { emit, onBlockReply } = createBlockReplyHarness("text_end");
+    const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "text_end" });
 
     const messageText = "Done - I replied in Juan chat.";
     await emitMessageToolLifecycle({
@@ -159,12 +163,52 @@ describe("subscribeEmbeddedPiSession", () => {
     expect(onBlockReply).toHaveBeenCalledTimes(1);
   });
   it("clears block reply state on message_start", () => {
-    const { emit, onBlockReply } = createBlockReplyHarness("text_end");
+    const { emit, onBlockReply } = createBlockReplyHarness({ blockReplyBreak: "text_end" });
     emitAssistantTextEndBlock(emit, "OK");
     expect(onBlockReply).toHaveBeenCalledTimes(1);
 
     // New assistant message with identical output should still emit.
     emitAssistantTextEndBlock(emit, "OK");
     expect(onBlockReply).toHaveBeenCalledTimes(2);
+  });
+
+  it("suppresses message_end when telegram auto-threading targets current topic without explicit topic in to", async () => {
+    const { emit, onBlockReply } = createBlockReplyHarness({
+      blockReplyBreak: "message_end",
+      messageProvider: "telegram",
+      originatingTo: "telegram:group:-100123:topic:77",
+    });
+
+    const messageText = "Sent into current telegram topic.";
+    await emitMessageToolLifecycle({
+      emit,
+      toolCallId: "tool-message-telegram-topic-message-end",
+      to: "-100123",
+      message: messageText,
+      result: "ok",
+    });
+    emitAssistantMessageEnd(emit, messageText);
+
+    expect(onBlockReply).not.toHaveBeenCalled();
+  });
+
+  it("suppresses text_end when telegram auto-threading targets current topic without explicit topic in to", async () => {
+    const { emit, onBlockReply } = createBlockReplyHarness({
+      blockReplyBreak: "text_end",
+      messageProvider: "telegram",
+      originatingTo: "telegram:group:-100123:topic:77",
+    });
+
+    const messageText = "Sent into current telegram topic.";
+    await emitMessageToolLifecycle({
+      emit,
+      toolCallId: "tool-message-telegram-topic-text-end",
+      to: "-100123",
+      message: messageText,
+      result: "ok",
+    });
+    emitAssistantTextEndBlock(emit, messageText);
+
+    expect(onBlockReply).not.toHaveBeenCalled();
   });
 });

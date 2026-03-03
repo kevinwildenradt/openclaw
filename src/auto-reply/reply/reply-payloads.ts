@@ -4,6 +4,7 @@ import { normalizeChannelId } from "../../channels/plugins/index.js";
 import type { ReplyToMode } from "../../config/types.js";
 import { normalizeTargetForProvider } from "../../infra/outbound/target-normalization.js";
 import { normalizeOptionalAccountId } from "../../routing/account-id.js";
+import { parseTelegramTarget } from "../../telegram/targets.js";
 import type { OriginatingChannelType } from "../templating.js";
 import type { ReplyPayload } from "../types.js";
 import { extractReplyToTag } from "./reply-tags.js";
@@ -174,6 +175,27 @@ function resolveTargetProviderForComparison(params: {
   return targetProvider;
 }
 
+function targetsMatchForSuppression(params: {
+  provider: string;
+  originTarget: string;
+  targetKey: string;
+}): boolean {
+  if (params.targetKey === params.originTarget) {
+    return true;
+  }
+  // Telegram auto-threading can route chat-level sends into the active topic.
+  // In that case `targetKey` may omit `:topic:` while `originTarget` includes it.
+  if (params.provider !== "telegram") {
+    return false;
+  }
+  const origin = parseTelegramTarget(params.originTarget);
+  const target = parseTelegramTarget(params.targetKey);
+  if (!origin.messageThreadId || target.messageThreadId) {
+    return false;
+  }
+  return origin.chatId.trim().toLowerCase() === target.chatId.trim().toLowerCase();
+}
+
 export function shouldSuppressMessagingToolReplies(params: {
   messageProvider?: string;
   messagingToolSentTargets?: MessagingToolSend[];
@@ -209,6 +231,6 @@ export function shouldSuppressMessagingToolReplies(params: {
     if (originAccount && targetAccount && originAccount !== targetAccount) {
       return false;
     }
-    return targetKey === originTarget;
+    return targetsMatchForSuppression({ provider, originTarget, targetKey });
   });
 }

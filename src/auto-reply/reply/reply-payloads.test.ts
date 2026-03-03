@@ -115,4 +115,13 @@ describe("shouldSuppressMessagingToolReplies", () => {
     });
     expect(suppressed).toBe(false);
   });
+
+  it("suppresses telegram topic-origin replies when target omits topic but chat matches", () => {
+    const suppressed = shouldSuppressMessagingToolReplies({
+      messageProvider: "telegram",
+      originatingTo: "telegram:group:-100123:topic:77",
+      messagingToolSentTargets: [{ tool: "message", provider: "telegram", to: "-100123" }],
+    });
+    expect(suppressed).toBe(true);
+  });
 });
