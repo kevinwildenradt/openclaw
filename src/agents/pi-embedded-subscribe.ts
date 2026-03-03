@@ -210,6 +210,11 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
       // Backward-compatible fallback when upstream caller does not provide routing context.
       return true;
     }
+    if (messagingToolSentTargets.length === 0) {
+      // Backward-compatible fallback: some successful sends infer target from tool context
+      // and don't include explicit to/target, so no send target is recorded.
+      return true;
+    }
     return shouldSuppressMessagingToolReplies({
       messageProvider: params.messageProvider,
       messagingToolSentTargets,

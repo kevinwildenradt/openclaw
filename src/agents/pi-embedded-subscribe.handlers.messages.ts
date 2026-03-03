@@ -392,12 +392,14 @@ export function handleMessageEnd(
         typeof ctx.params.originatingTo === "string" &&
         ctx.params.originatingTo.trim().length > 0;
       const shouldSuppressBlockReply = hasRoutingScope
-        ? shouldSuppressMessagingToolReplies({
-            messageProvider: ctx.params.messageProvider,
-            messagingToolSentTargets: ctx.state.messagingToolSentTargets,
-            originatingTo: ctx.params.originatingTo,
-            accountId: ctx.params.accountId,
-          })
+        ? ctx.state.messagingToolSentTargets.length === 0
+          ? true
+          : shouldSuppressMessagingToolReplies({
+              messageProvider: ctx.params.messageProvider,
+              messagingToolSentTargets: ctx.state.messagingToolSentTargets,
+              originatingTo: ctx.params.originatingTo,
+              accountId: ctx.params.accountId,
+            })
         : true;
       if (
         shouldSuppressBlockReply &&

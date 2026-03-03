@@ -25,14 +25,22 @@ async function emitMessageToolLifecycle(params: {
   emit: (evt: unknown) => void;
   toolCallId: string;
   to?: string;
+  omitTo?: boolean;
   message: string;
   result: unknown;
 }) {
+  const args: Record<string, unknown> = {
+    action: "send",
+    message: params.message,
+  };
+  if (!params.omitTo) {
+    args.to = params.to ?? "+1555";
+  }
   params.emit({
     type: "tool_execution_start",
     toolName: "message",
     toolCallId: params.toolCallId,
-    args: { action: "send", to: params.to ?? "+1555", message: params.message },
+    args,
   });
   // Wait for async handler to complete.
   await Promise.resolve();
@@ -90,6 +98,21 @@ describe("subscribeEmbeddedPiSession", () => {
 
     expect(onBlockReply).toHaveBeenCalledTimes(1);
   });
+  it("suppresses message_end block replies when message tool infers target without to/target args", async () => {
+    const { emit, onBlockReply } = createBlockReplyHarness("message_end");
+
+    const messageText = "Done - sent from inferred channel context.";
+    await emitMessageToolLifecycle({
+      emit,
+      toolCallId: "tool-message-inferred-target",
+      omitTo: true,
+      message: messageText,
+      result: "ok",
+    });
+    emitAssistantMessageEnd(emit, messageText);
+
+    expect(onBlockReply).not.toHaveBeenCalled();
+  });
   it("does not suppress message_end replies when message tool sent to a different target", async () => {
     const { emit, onBlockReply } = createBlockReplyHarness("message_end");
 
@@ -104,6 +127,21 @@ describe("subscribeEmbeddedPiSession", () => {
     emitAssistantMessageEnd(emit, messageText);
 
     expect(onBlockReply).toHaveBeenCalledTimes(1);
+  });
+  it("suppresses text_end block replies when message tool infers target without to/target args", async () => {
+    const { emit, onBlockReply } = createBlockReplyHarness("text_end");
+
+    const messageText = "Done - sent from inferred channel context.";
+    await emitMessageToolLifecycle({
+      emit,
+      toolCallId: "tool-message-inferred-target-text-end",
+      omitTo: true,
+      message: messageText,
+      result: "ok",
+    });
+    emitAssistantTextEndBlock(emit, messageText);
+
+    expect(onBlockReply).not.toHaveBeenCalled();
   });
   it("does not suppress text_end block replies when message tool sent to a different target", async () => {
     const { emit, onBlockReply } = createBlockReplyHarness("text_end");
