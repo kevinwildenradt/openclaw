@@ -23,10 +23,10 @@ export function shouldSuppressMessagingToolBlockReply(params: {
   originatingTo?: string;
   accountId?: string;
 }): boolean {
-  const hasDuplicate = params.sentRecords.some(
+  const matchingRecords = params.sentRecords.filter(
     (record) => record.textNormalized === params.normalizedText,
   );
-  if (!hasDuplicate) {
+  if (matchingRecords.length === 0) {
     return false;
   }
   if (!hasRoutingScope(params)) {
@@ -34,7 +34,7 @@ export function shouldSuppressMessagingToolBlockReply(params: {
     return true;
   }
 
-  const sentTargets = collectSentTargets(params.sentRecords);
+  const sentTargets = collectSentTargets(matchingRecords);
   if (sentTargets.length === 0) {
     // Backward-compatible fallback: successful sends may infer target from tool context
     // and omit explicit to/target args.
@@ -51,9 +51,6 @@ export function shouldSuppressMessagingToolBlockReply(params: {
     return true;
   }
   // Mixed runs may include explicit off-target sends and inferred sends.
-  // Keep fallback suppression only for matching text from non-explicit targets.
-  return params.sentRecords.some(
-    (record) =>
-      record.textNormalized === params.normalizedText && record.targetSource !== "explicit",
-  );
+  // Keep fallback suppression only for matching text entries that truly have no target metadata.
+  return matchingRecords.some((record) => !record.target);
 }
