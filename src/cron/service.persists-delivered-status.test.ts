@@ -82,10 +82,19 @@ async function runSingleJobAndReadState(params: {
   return { job, updated: jobs.find((entry) => entry.id === job.id) };
 }
 
-function expectSuccessfulCronRun(updated: { state: Record<string, unknown> } | undefined) {
-  const state = (updated?.state ?? {}) as { lastStatus?: string; lastRunStatus?: string };
-  expect(state.lastStatus).toBe("ok");
-  expect(state.lastRunStatus).toBe("ok");
+function expectSuccessfulCronRun(
+  updated:
+    | {
+        state: {
+          lastStatus?: string;
+          lastRunStatus?: string;
+          [key: string]: unknown;
+        };
+      }
+    | undefined,
+) {
+  expect(updated?.state.lastStatus).toBe("ok");
+  expect(updated?.state.lastRunStatus).toBe("ok");
 }
 
 function expectDeliveryNotRequested(
