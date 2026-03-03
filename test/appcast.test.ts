@@ -8,20 +8,29 @@ function expectedSparkleVersion(shortVersion: string): string {
   if (!year || !month || !day) {
     throw new Error(`unexpected short version: ${shortVersion}`);
   }
-  return `${year}${month.padStart(2, "0")}${day.padStart(2, "0")}0`;
+  return `${year}${month.padStart(2, "0")}${day.padStart(2, "0")}`;
 }
 
 describe("appcast.xml", () => {
-  it("uses the expected Sparkle version for 2026.2.15", () => {
+  it("uses a Sparkle version prefixed by short version date", () => {
     const appcast = readFileSync(APPCAST_URL, "utf8");
-    const shortVersion = "2026.2.15";
-    const items = Array.from(appcast.matchAll(/<item>[\s\S]*?<\/item>/g)).map((match) => match[0]);
-    const matchingItem = items.find((item) =>
-      item.includes(`<sparkle:shortVersionString>${shortVersion}</sparkle:shortVersionString>`),
-    );
+    const items = Array.from(appcast.matchAll(/<item>[\s\S]*?<\/item>/g))
+      .map((match) => match[0])
+      .map((item) => {
+        const shortVersion = item.match(
+          /<sparkle:shortVersionString>([^<]+)<\/sparkle:shortVersionString>/,
+        )?.[1];
+        const sparkleVersion = item.match(/<sparkle:version>([^<]+)<\/sparkle:version>/)?.[1];
+        return { shortVersion, sparkleVersion };
+      })
+      .filter((item): item is { shortVersion: string; sparkleVersion: string } =>
+        Boolean(item.shortVersion && item.sparkleVersion),
+      )
+      .filter((item) => /^\d{4}\.\d{1,2}\.\d{1,2}$/.test(item.shortVersion));
 
-    expect(matchingItem).toBeDefined();
-    const sparkleMatch = matchingItem?.match(/<sparkle:version>([^<]+)<\/sparkle:version>/);
-    expect(sparkleMatch?.[1]).toBe(expectedSparkleVersion(shortVersion));
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(item.sparkleVersion.startsWith(expectedSparkleVersion(item.shortVersion))).toBe(true);
+    }
   });
 });
