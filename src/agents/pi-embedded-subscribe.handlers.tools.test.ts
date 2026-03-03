@@ -43,6 +43,7 @@ function createTestContext(): {
       messagingToolSentTexts: [],
       messagingToolSentTextsNormalized: [],
       messagingToolSentTextsHadExplicitTarget: [],
+      messagingToolSentRecords: [],
       messagingToolSentMediaUrls: [],
       messagingToolSentTargets: [],
       successfulCronAdds: 0,
@@ -337,14 +338,63 @@ describe("messaging tool media URL tracking", () => {
     ]);
   });
 
+  it("captures inferred messaging target from tool result when start args omit target", async () => {
+    const { ctx } = createTestContext();
+
+    await handleToolExecutionStart(ctx, {
+      type: "tool_execution_start",
+      toolName: "message",
+      toolCallId: "tool-inferred-target",
+      args: {
+        action: "send",
+        content: "hi inferred",
+      },
+    });
+
+    await handleToolExecutionEnd(ctx, {
+      type: "tool_execution_end",
+      toolName: "message",
+      toolCallId: "tool-inferred-target",
+      isError: false,
+      result: {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              channel: "telegram",
+              to: "123",
+            }),
+          },
+        ],
+      },
+    });
+
+    expect(ctx.state.messagingToolSentTargets).toEqual([
+      expect.objectContaining({
+        tool: "message",
+        provider: "telegram",
+        to: "123",
+      }),
+    ]);
+    expect(ctx.state.messagingToolSentTextsHadExplicitTarget).toEqual([false]);
+    expect(ctx.state.messagingToolSentRecords).toEqual([
+      expect.objectContaining({
+        text: "hi inferred",
+        textNormalized: "hi inferred",
+        targetSource: "inferred",
+      }),
+    ]);
+  });
+
   it("trims messagingToolSentMediaUrls to 200 on commit (FIFO)", async () => {
     const { ctx } = createTestContext();
 
     // Replace mock with a real trim that replicates production cap logic.
     const MAX = 200;
     ctx.trimMessagingToolSent = () => {
-      if (ctx.state.messagingToolSentTexts.length > MAX) {
-        const overflow = ctx.state.messagingToolSentTexts.length - MAX;
+      if (ctx.state.messagingToolSentRecords.length > MAX) {
+        const overflow = ctx.state.messagingToolSentRecords.length - MAX;
+        ctx.state.messagingToolSentRecords.splice(0, overflow);
         ctx.state.messagingToolSentTexts.splice(0, overflow);
         ctx.state.messagingToolSentTextsNormalized.splice(0, overflow);
         ctx.state.messagingToolSentTextsHadExplicitTarget.splice(0, overflow);

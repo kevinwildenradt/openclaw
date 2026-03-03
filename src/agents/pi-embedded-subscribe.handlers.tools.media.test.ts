@@ -27,6 +27,7 @@ function createMockContext(overrides?: {
       messagingToolSentTexts: [],
       messagingToolSentTextsNormalized: [],
       messagingToolSentTextsHadExplicitTarget: [],
+      messagingToolSentRecords: [],
       messagingToolSentMediaUrls: [],
       messagingToolSentTargets: [],
     },

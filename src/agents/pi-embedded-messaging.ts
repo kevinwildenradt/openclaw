@@ -8,6 +8,15 @@ export type MessagingToolSend = {
   threadId?: string;
 };
 
+export type MessagingToolTargetSource = "explicit" | "inferred" | "none";
+
+export type MessagingToolSentRecord = {
+  text: string;
+  textNormalized: string;
+  target?: MessagingToolSend;
+  targetSource: MessagingToolTargetSource;
+};
+
 const CORE_MESSAGING_TOOLS = new Set(["sessions_send", "message"]);
 
 // Provider docking: any plugin with `actions` opts into messaging tool handling.

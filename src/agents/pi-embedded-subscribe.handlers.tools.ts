@@ -6,6 +6,7 @@ import { normalizeTextForComparison } from "./pi-embedded-helpers.js";
 import {
   isMessagingTool,
   isMessagingToolSendAction,
+  type MessagingToolTargetSource,
   type MessagingToolSend,
 } from "./pi-embedded-messaging.js";
 import type {
@@ -385,31 +386,48 @@ export async function handleToolExecutionEnd(
   // Commit messaging tool text on success, discard on error.
   const pendingText = ctx.state.pendingMessagingTexts.get(toolCallId);
   const pendingTarget = ctx.state.pendingMessagingTargets.get(toolCallId);
+  const extractedTargetFromResult =
+    !isToolError && isMessagingTool(toolName)
+      ? extractMessagingToolSendFromResult(toolName, result)
+      : undefined;
+  const extractedTargetFromArgs =
+    !isToolError && isMessagingTool(toolName)
+      ? extractMessagingToolSend(toolName, afterToolCallArgs)
+      : undefined;
   const committedTarget =
-    pendingTarget && !isToolError && isMessagingTool(toolName)
-      ? mergeMessagingTarget(
-          pendingTarget,
-          extractMessagingToolSendFromResult(toolName, result) ??
-            extractMessagingToolSend(toolName, afterToolCallArgs),
-        )
+    !isToolError && isMessagingTool(toolName)
+      ? pendingTarget
+        ? mergeMessagingTarget(pendingTarget, extractedTargetFromResult ?? extractedTargetFromArgs)
+        : (extractedTargetFromResult ?? extractedTargetFromArgs)
       : pendingTarget;
+  const targetSource: MessagingToolTargetSource = pendingTarget
+    ? "explicit"
+    : committedTarget
+      ? "inferred"
+      : "none";
   if (pendingText) {
     ctx.state.pendingMessagingTexts.delete(toolCallId);
     if (!isToolError) {
       ctx.state.messagingToolSentTexts.push(pendingText);
       const normalizedPendingText = normalizeTextForComparison(pendingText);
       ctx.state.messagingToolSentTextsNormalized.push(normalizedPendingText);
-      ctx.state.messagingToolSentTextsHadExplicitTarget.push(Boolean(committedTarget));
+      ctx.state.messagingToolSentTextsHadExplicitTarget.push(targetSource === "explicit");
+      ctx.state.messagingToolSentRecords.push({
+        text: pendingText,
+        textNormalized: normalizedPendingText,
+        target: committedTarget,
+        targetSource,
+      });
       ctx.log.debug(`Committed messaging text: tool=${toolName} len=${pendingText.length}`);
       ctx.trimMessagingToolSent();
     }
   }
   if (pendingTarget) {
     ctx.state.pendingMessagingTargets.delete(toolCallId);
-    if (!isToolError) {
-      ctx.state.messagingToolSentTargets.push(committedTarget ?? pendingTarget);
-      ctx.trimMessagingToolSent();
-    }
+  }
+  if (!isToolError && committedTarget) {
+    ctx.state.messagingToolSentTargets.push(committedTarget);
+    ctx.trimMessagingToolSent();
   }
   const pendingMediaUrls = ctx.state.pendingMessagingMediaUrls.get(toolCallId) ?? [];
   ctx.state.pendingMessagingMediaUrls.delete(toolCallId);

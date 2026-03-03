@@ -1,6 +1,5 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import { parseReplyDirectives } from "../auto-reply/reply/reply-directives.js";
-import { shouldSuppressMessagingToolReplies } from "../auto-reply/reply/reply-payloads.js";
 import { createStreamingDirectiveAccumulator } from "../auto-reply/reply/streaming-directives.js";
 import { formatToolAggregate } from "../auto-reply/tool-meta.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
@@ -8,10 +7,8 @@ import { createSubsystemLogger } from "../logging/subsystem.js";
 import type { InlineCodeState } from "../markdown/code-spans.js";
 import { buildCodeSpanIndex, createInlineCodeState } from "../markdown/code-spans.js";
 import { EmbeddedBlockChunker } from "./pi-embedded-block-chunker.js";
-import {
-  isMessagingToolDuplicateNormalized,
-  normalizeTextForComparison,
-} from "./pi-embedded-helpers.js";
+import { normalizeTextForComparison } from "./pi-embedded-helpers.js";
+import { shouldSuppressMessagingToolBlockReply } from "./pi-embedded-subscribe.dedupe.js";
 import { createEmbeddedPiSessionEventHandler } from "./pi-embedded-subscribe.handlers.js";
 import type {
   EmbeddedPiSubscribeContext,
@@ -74,6 +71,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     messagingToolSentTexts: [],
     messagingToolSentTextsNormalized: [],
     messagingToolSentTextsHadExplicitTarget: [],
+    messagingToolSentRecords: [],
     messagingToolSentTargets: [],
     messagingToolSentMediaUrls: [],
     pendingMessagingTexts: new Map(),
@@ -97,6 +95,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
   const messagingToolSentTexts = state.messagingToolSentTexts;
   const messagingToolSentTextsNormalized = state.messagingToolSentTextsNormalized;
   const messagingToolSentTextsHadExplicitTarget = state.messagingToolSentTextsHadExplicitTarget;
+  const messagingToolSentRecords = state.messagingToolSentRecords;
   const messagingToolSentTargets = state.messagingToolSentTargets;
   const messagingToolSentMediaUrls = state.messagingToolSentMediaUrls;
   const pendingMessagingTexts = state.pendingMessagingTexts;
@@ -202,41 +201,10 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
   const MAX_MESSAGING_SENT_TEXTS = 200;
   const MAX_MESSAGING_SENT_TARGETS = 200;
   const MAX_MESSAGING_SENT_MEDIA_URLS = 200;
-  const shouldSuppressMessagingToolBlockReply = (normalizedText: string) => {
-    const hasRoutingScope =
-      typeof params.messageProvider === "string" &&
-      params.messageProvider.trim().length > 0 &&
-      typeof params.originatingTo === "string" &&
-      params.originatingTo.trim().length > 0;
-    if (!hasRoutingScope) {
-      // Backward-compatible fallback when upstream caller does not provide routing context.
-      return true;
-    }
-    if (messagingToolSentTargets.length === 0) {
-      // Backward-compatible fallback: some successful sends infer target from tool context
-      // and don't include explicit to/target, so no send target is recorded.
-      return true;
-    }
-    if (
-      shouldSuppressMessagingToolReplies({
-        messageProvider: params.messageProvider,
-        messagingToolSentTargets,
-        originatingTo: params.originatingTo,
-        accountId: params.accountId,
-      })
-    ) {
-      return true;
-    }
-    // Mixed runs may include explicit off-target sends and inferred sends without target metadata.
-    // Keep fallback suppression only for retained texts sent without explicit targets.
-    return messagingToolSentTextsNormalized.some(
-      (sentText, idx) =>
-        sentText === normalizedText && !messagingToolSentTextsHadExplicitTarget[idx],
-    );
-  };
   const trimMessagingToolSent = () => {
-    if (messagingToolSentTexts.length > MAX_MESSAGING_SENT_TEXTS) {
-      const overflow = messagingToolSentTexts.length - MAX_MESSAGING_SENT_TEXTS;
+    if (messagingToolSentRecords.length > MAX_MESSAGING_SENT_TEXTS) {
+      const overflow = messagingToolSentRecords.length - MAX_MESSAGING_SENT_TEXTS;
+      messagingToolSentRecords.splice(0, overflow);
       messagingToolSentTexts.splice(0, overflow);
       messagingToolSentTextsNormalized.splice(0, overflow);
       messagingToolSentTextsHadExplicitTarget.splice(0, overflow);
@@ -515,8 +483,13 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     // is risky because if the tool fails after suppression, the user gets no response
     const normalizedChunk = normalizeTextForComparison(chunk);
     if (
-      shouldSuppressMessagingToolBlockReply(normalizedChunk) &&
-      isMessagingToolDuplicateNormalized(normalizedChunk, messagingToolSentTextsNormalized)
+      shouldSuppressMessagingToolBlockReply({
+        normalizedText: normalizedChunk,
+        sentRecords: messagingToolSentRecords,
+        messageProvider: params.messageProvider,
+        originatingTo: params.originatingTo,
+        accountId: params.accountId,
+      })
     ) {
       log.debug(`Skipping block reply - already sent via messaging tool: ${chunk.slice(0, 50)}...`);
       return;
@@ -619,6 +592,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     messagingToolSentTexts.length = 0;
     messagingToolSentTextsNormalized.length = 0;
     messagingToolSentTextsHadExplicitTarget.length = 0;
+    messagingToolSentRecords.length = 0;
     messagingToolSentTargets.length = 0;
     messagingToolSentMediaUrls.length = 0;
     pendingMessagingTexts.clear();

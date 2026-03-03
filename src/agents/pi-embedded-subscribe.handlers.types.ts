@@ -4,7 +4,7 @@ import type { ReasoningLevel } from "../auto-reply/thinking.js";
 import type { InlineCodeState } from "../markdown/code-spans.js";
 import type { HookRunner } from "../plugins/hooks.js";
 import type { EmbeddedBlockChunker } from "./pi-embedded-block-chunker.js";
-import type { MessagingToolSend } from "./pi-embedded-messaging.js";
+import type { MessagingToolSend, MessagingToolSentRecord } from "./pi-embedded-messaging.js";
 import type {
   BlockReplyChunking,
   SubscribeEmbeddedPiSessionParams,
@@ -71,6 +71,7 @@ export type EmbeddedPiSubscribeState = {
   messagingToolSentTexts: string[];
   messagingToolSentTextsNormalized: string[];
   messagingToolSentTextsHadExplicitTarget: boolean[];
+  messagingToolSentRecords: MessagingToolSentRecord[];
   messagingToolSentTargets: MessagingToolSend[];
   messagingToolSentMediaUrls: string[];
   pendingMessagingTexts: Map<string, string>;
@@ -154,6 +155,7 @@ export type ToolHandlerState = Pick<
   | "messagingToolSentTexts"
   | "messagingToolSentTextsNormalized"
   | "messagingToolSentTextsHadExplicitTarget"
+  | "messagingToolSentRecords"
   | "messagingToolSentMediaUrls"
   | "messagingToolSentTargets"
   | "successfulCronAdds"

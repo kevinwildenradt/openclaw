@@ -84,6 +84,7 @@ function createToolHandlerCtx() {
       messagingToolSentTexts: [] as string[],
       messagingToolSentTextsNormalized: [] as string[],
       messagingToolSentTextsHadExplicitTarget: [] as boolean[],
+      messagingToolSentRecords: [] as unknown[],
       messagingToolSentMediaUrls: [] as string[],
       messagingToolSentTargets: [] as unknown[],
       blockBuffer: "",
