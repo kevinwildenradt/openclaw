@@ -52,7 +52,6 @@ const mockResolveAgentRoute = vi.fn(() => ({
   agentId: "main",
   channel: "bluebubbles",
   accountId: "default",
-  channel: "bluebubbles",
   sessionKey: "agent:main:bluebubbles:dm:+15551234567",
   mainSessionKey: "agent:main:main",
   matchedBy: "default",
